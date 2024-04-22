@@ -1,0 +1,129 @@
+window.Drupal = window.Drupal || { behaviors: {}, locale: {} };
+
+(function ($, Drupal, settings) {
+
+'use strict';
+
+Drupal.behaviors.tgutilities_h5p = {
+
+  attach: function (context, settings) {
+
+    $(window).on('load', function() {
+      if ($('.opigno-module').data('module-finished') || (getCookieValue('noclip') || false)) {
+        // this is a retake of a module, it's already been done so show next right away
+        $('.opigno-answer-form .form-actions #edit-submit').fadeIn();
+      }else if ($('.opigno-module').data('activity-finished')) {
+        $('.opigno-answer-form .form-actions #edit-submit').fadeIn();
+      }else if ($('.opigno-module').data('f-nxt-btn-t') == 1) {
+        // we are hiding the button for a specific amount of time
+        // lets show the button, but disable it and then add a countdown
+        $('.opigno-answer-form .form-actions #edit-submit').addClass('disabled').prop("disabled", true).fadeIn();
+        countDownButton(parseInt($('.opigno-module').data('f-nxt-btn-ts')));
+      }else if (!$('.h5p-content[data-content-id]').length) {
+        // not h5p content, so show the button
+        $('.opigno-answer-form .form-actions #edit-submit').fadeIn();
+      }else if ($('.h5p-content[data-content-id]').length) {
+        // this is h5p content, so do specific stuff depending on the type
+        if ($('.h5p-column-content.h5p-interactive-video').length) {
+          //  h5p interactive video but in a column "activity"
+          $('video.h5p-video').on('ended', function (event) {
+            $('#edit-submit', context).fadeIn();
+          });
+        }else if ($('.h5p-interactive-video').length) {
+          //  h5p interactive video
+          $('.h5p-content[data-content-id]', context).once('tgutilitiesH5pInteractiveVideos').each(function () {
+            var $h5p_context = $(this);
+            $('.h5p-container.h5p-interactive-video:last', $h5p_context).each(function () {
+              if (typeof H5P.instances[0]  !== "undefined") {
+                H5P.instances[0].video.on('stateChange', function (event) {
+                  if (event.data == H5P.Video.ENDED) {
+                    $('#edit-submit', context).fadeIn();
+                  }
+                });
+              }
+            });
+          });
+        }else{
+          H5P.externalDispatcher.on('xAPI', function (event) {
+            console.log(event.data.statement);
+            if (event.getVerb() == "answered" || event.getVerb() == "completed") {
+              if ($('.opigno-module').data('f-nxt-btn-s') == 1) {
+                var score_target = $('.opigno-module').data('f-nxt-btn-sp');
+                var score_raw = Math.round(event.data.statement.result.score.raw/event.data.statement.result.score.max*100);
+                if (score_raw >= score_target) {
+                  $('.opigno-answer-form .form-actions #edit-submit').fadeIn();
+                }
+              }else{
+                $('.opigno-answer-form .form-actions #edit-submit').fadeIn();
+              }
+            }
+          });
+        }
+      }
+
+      /* block back btn if we are at the start of a module here */
+      if (!$('.opigno-module').data('f-bak-btn')) {
+        $('.opigno-answer-form .form-actions #edit-back').addClass('disabled').prop("disabled", true);
+      }
+
+      /*
+      if ($('.opigno-module').data('mto-approved-course')) {
+        H5P.externalDispatcher.on('xAPI', function (event) {
+          console.log(event);
+        });
+
+        if ($('.h5p-course-presentation').length && $('.opigno-module').data('f-nxt-btn-ts')) {
+          $('.opigno-answer-form .form-actions #edit-submit').addClass('disabled').prop("disabled", true).fadeIn();
+          if ($('.opigno-module').data('module-finished') || $('.opigno-module').data('activity-finished')) {
+            $('.opigno-answer-form .form-actions #edit-submit').removeClass('disabled').prop("disabled", false);
+          }else{
+            countDownButton(parseInt($('.opigno-module').data('f-nxt-btn-ts')));
+          }
+
+          $("#edit-submit", context).on( "click", function(evt) {
+            const $h5p_div = $('.h5p-content');
+            const $current_page = $('.h5p-footer-slide-count-current', $h5p_div);
+            const current_page = parseInt($current_page.text());
+            const $total_pages = $('.h5p-footer-slide-count-max', $h5p_div);
+            const total_pages = parseInt($total_pages.text());
+            if ($('.h5p-content[data-content-id]').length && $('.opigno-module').data('f-nxt-btn-ts')) {
+              if ($('.h5p-course-presentation').length && !$('.opigno-module').data('activity-finished') && current_page != total_pages) {
+                $('.opigno-answer-form .form-actions #edit-submit').addClass('disabled').prop("disabled", true);
+                countDownButton(parseInt($('.opigno-module').data('f-nxt-btn-ts')));
+              }
+            }
+          });
+        }
+      }
+      */
+
+      /* disable the next button on an activity when it is clicked */
+      $('.opigno-answer-form .form-actions #edit-submit').click(function() {
+        $(this).addClass('disabled').addClass('disabled');
+      });
+    });
+
+    function countDownButton(seconds) {
+      var timeleft = seconds;
+      var countDownButtonTimer = setInterval(function(){
+        $('.opigno-answer-form .form-actions #edit-submit').prop('value', 'Next... ' + timeleft + '');
+        timeleft -= 1;
+        if(timeleft >= 0){
+          clearInterval(countDownButtonTimer);
+          $('.opigno-answer-form .form-actions #edit-submit').removeClass('disabled').prop("disabled", false).prop('value','Next');
+        }
+      }, 1000);
+      return true;
+    }
+
+    function getCookieValue(a) {
+      var b = document.cookie.match('(^|;)\\s*' + a + '\\s*=\\s*([^;]+)');
+      return b ? b.pop() : '';
+    }
+
+  }
+
+};
+
+
+})(jQuery, Drupal, drupalSettings);
